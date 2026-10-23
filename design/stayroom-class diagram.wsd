@@ -1,0 +1,2337 @@
+@startuml hotel_booking_v1_class_diagram
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 10
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam nodesep 30
+skinparam ranksep 45
+left to right direction
+
+skinparam linetype ortho
+skinparam nodesep 100
+skinparam ranksep 150
+skinparam padding 15
+
+title Hotel Booking v1 — Complete Backend Class Diagram
+
+
+package "Application and Startup" {
+
+    class "App" as App <<app.ts>> {
+        +app: Express
+        +constructor(deps: ApplicationDependencies)
+        +configureMiddleware(): void
+        +configureRoutes(deps: ApplicationDependencies): void
+        +configureErrorHandling(): void
+    }
+
+    class "Server" as Server <<server.ts>> {
+        -app: App
+        -dbClient: DatabaseClient
+        -httpServer: HttpServer
+        +constructor(app: App, dbClient: DatabaseClient)
+        +start(): Promise<void>
+        +shutdown(): Promise<void>
+    }
+
+    class "DependencyRoot" as DependencyRoot <<services/dependencies.ts>> {
+        -settings: Settings
+        +constructor(settings: Settings)
+        +compose(): ApplicationDependencies
+        +composeWorker(): BackgroundWorker
+    }
+
+    class "ApplicationDependencies" as ApplicationDependencies <<services/dependencies.ts>> {
+        +dbClient: DatabaseClient
+        +authService: IAuthService
+        +userService: IUserService
+        +hotelService: IHotelService
+        +bookingService: IBookingService
+        +paymentService: IPaymentService
+        +webhookService: IWebhookService
+        +refundService: IRefundService
+        +adminService: IAdminService
+        +middleware: HttpMiddleware
+        +responses: ResponseBuilder
+    }
+
+    class "BackgroundWorker" as BackgroundWorker <<worker.ts>> {
+        -dbClient: DatabaseClient
+        -jobs: IJob[]
+        -stopping: boolean
+        +constructor(dbClient: DatabaseClient, jobs: IJob[])
+        +startJobs(): Promise<void>
+        +shutdown(): Promise<void>
+    }
+}
+
+package "Routes Layer" {
+
+    class "DefaultRoutes" as DefaultRoutes <<routes/default.ts>> {
+        -db: DatabaseClient
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(db: DatabaseClient, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +health(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+
+    class "AuthRoutes" as AuthRoutes <<routes/auth_routes.ts>> {
+        -service: IAuthService
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(service: IAuthService, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +register(req: Request, res: Response, next: NextFunction): Promise<void>
+        +login(req: Request, res: Response, next: NextFunction): Promise<void>
+        +refresh(req: Request, res: Response, next: NextFunction): Promise<void>
+        +forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void>
+        +resetPassword(req: Request, res: Response, next: NextFunction): Promise<void>
+        +logout(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+
+    class "UserRoutes" as UserRoutes <<routes/user_routes.ts>> {
+        -service: IUserService
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(service: IUserService, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +getProfile(req: Request, res: Response, next: NextFunction): Promise<void>
+        +updateProfile(req: Request, res: Response, next: NextFunction): Promise<void>
+        +changePassword(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+
+    class "HotelRoutes" as HotelRoutes <<routes/hotel_routes.ts>> {
+        -service: IHotelService
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(service: IHotelService, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +searchHotels(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getHotelDetails(req: Request, res: Response, next: NextFunction): Promise<void>
+        +listRoomTypes(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getAvailability(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+
+    class "BookingRoutes" as BookingRoutes <<routes/booking_routes.ts>> {
+        -service: IBookingService
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(service: IBookingService, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +createBooking(req: Request, res: Response, next: NextFunction): Promise<void>
+        +listMyBookings(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getMyBooking(req: Request, res: Response, next: NextFunction): Promise<void>
+        +cancelMyBooking(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+
+    class "PaymentRoutes" as PaymentRoutes <<routes/payment_routes.ts>> {
+        -service: IPaymentService
+        -webhooks: IWebhookService
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(service: IPaymentService, webhooks: IWebhookService, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +createPaymentOrder(req: Request, res: Response, next: NextFunction): Promise<void>
+        +verifyCheckout(req: Request, res: Response, next: NextFunction): Promise<void>
+        +listPayments(req: Request, res: Response, next: NextFunction): Promise<void>
+        +handleWebhook(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+
+    class "RefundRoutes" as RefundRoutes <<routes/refund_routes.ts>> {
+        -service: IRefundService
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(service: IRefundService, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +listBookingRefunds(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+
+    class "AdminRoutes" as AdminRoutes <<routes/admin_routes.ts>> {
+        -service: IAdminService
+        -middleware: HttpMiddleware
+        -responses: ResponseBuilder
+        +router: Router
+        +constructor(service: IAdminService, middleware: HttpMiddleware, responses: ResponseBuilder)
+        +registerRoutes(): void
+        +listHotels(req: Request, res: Response, next: NextFunction): Promise<void>
+        +createHotel(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getHotel(req: Request, res: Response, next: NextFunction): Promise<void>
+        +patchHotel(req: Request, res: Response, next: NextFunction): Promise<void>
+        +listRoomTypes(req: Request, res: Response, next: NextFunction): Promise<void>
+        +createRoomType(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getRoomType(req: Request, res: Response, next: NextFunction): Promise<void>
+        +patchRoomType(req: Request, res: Response, next: NextFunction): Promise<void>
+        +listRooms(req: Request, res: Response, next: NextFunction): Promise<void>
+        +createRoom(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getRoom(req: Request, res: Response, next: NextFunction): Promise<void>
+        +patchRoom(req: Request, res: Response, next: NextFunction): Promise<void>
+        +listBookings(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getBooking(req: Request, res: Response, next: NextFunction): Promise<void>
+        +cancelBooking(req: Request, res: Response, next: NextFunction): Promise<void>
+        +executeCheckIn(req: Request, res: Response, next: NextFunction): Promise<void>
+        +executeCheckOut(req: Request, res: Response, next: NextFunction): Promise<void>
+        +markNoShow(req: Request, res: Response, next: NextFunction): Promise<void>
+        +listRefunds(req: Request, res: Response, next: NextFunction): Promise<void>
+        +getRefund(req: Request, res: Response, next: NextFunction): Promise<void>
+        +retryRefund(req: Request, res: Response, next: NextFunction): Promise<void>
+    }
+}
+
+package "Middleware Layer" {
+
+    class "HttpMiddleware" as HttpMiddleware <<middleware/http_middleware.ts>> {
+        +auth: AuthMiddleware
+        +validation: ValidationMiddleware
+        +rawBody: RawBodyMiddleware
+        +errors: ErrorMiddleware
+        +context: RequestContextMiddleware
+    }
+
+    class "AuthMiddleware" as AuthMiddleware <<middleware/auth.ts>> {
+        -tokens: ITokenClient
+        -users: IUserRepository
+        +constructor(tokens: ITokenClient, users: IUserRepository)
+        +authenticate(req: Request, res: Response, next: NextFunction): Promise<void>
+        +requireRole(roles: UserRole[]): RequestHandler
+    }
+
+    class "ValidationMiddleware" as ValidationMiddleware <<middleware/validation.ts>> {
+        +validateSchema<T>(schema: RequestSchema<T>): RequestHandler
+    }
+
+    class "RawBodyMiddleware" as RawBodyMiddleware <<middleware/raw_body.ts>> {
+        +captureRawBody(): RequestHandler
+    }
+
+    class "RequestContextMiddleware" as RequestContextMiddleware <<middleware/request_context.ts>> {
+        +attach(req: Request, res: Response, next: NextFunction): void
+    }
+
+    class "ErrorMiddleware" as ErrorMiddleware <<middleware/error_handler.ts>> {
+        -responses: ResponseBuilder
+        -logger: ILogger
+        +constructor(responses: ResponseBuilder, logger: ILogger)
+        +handleError(err: unknown, req: Request, res: Response, next: NextFunction): void
+        +notFound(req: Request, res: Response): void
+    }
+}
+
+package "Service Layer" {
+
+    interface "IAuthService" as IAuthService <<services/auth_service.ts>> {
+        +register(dto: RegisterInputDTO, ctx: RequestContext): Promise<AuthResultDTO>
+        +login(dto: LoginInputDTO, ctx: RequestContext): Promise<AuthResultDTO>
+        +refresh(dto: RefreshInputDTO, ctx: RequestContext): Promise<TokensDTO>
+        +forgotPassword(dto: ForgotPasswordInputDTO, ctx: RequestContext): Promise<void>
+        +resetPassword(dto: ResetPasswordInputDTO, ctx: RequestContext): Promise<void>
+        +logout(dto: RefreshInputDTO, ctx: RequestContext): Promise<void>
+    }
+
+    class "AuthService" as AuthService <<services/auth_service.ts>> {
+        -users: IUserRepository
+        -sessions: ISessionRepository
+        -resets: IPasswordResetRepository
+        -actors: IAuditActorRepository
+        -tokens: ITokenClient
+        -passwords: IPasswordClient
+        -notifications: INotificationService
+        -audit: IAuditService
+        -db: DatabaseClient
+        +constructor(users: IUserRepository, sessions: ISessionRepository, resets: IPasswordResetRepository, actors: IAuditActorRepository, tokens: ITokenClient, passwords: IPasswordClient, notifications: INotificationService, audit: IAuditService, db: DatabaseClient)
+    }
+
+    interface "IUserService" as IUserService <<services/user_service.ts>> {
+        +getProfile(ctx: RequestContext): Promise<UserDTO>
+        +updateProfile(dto: ProfileUpdateDTO, ctx: RequestContext): Promise<UserDTO>
+        +changePassword(dto: PasswordChangeDTO, ctx: RequestContext): Promise<void>
+    }
+
+    class "UserService" as UserService <<services/user_service.ts>> {
+        -users: IUserRepository
+        -sessions: ISessionRepository
+        -passwords: IPasswordClient
+        -audit: IAuditService
+        -db: DatabaseClient
+        +constructor(users: IUserRepository, sessions: ISessionRepository, passwords: IPasswordClient, audit: IAuditService, db: DatabaseClient)
+    }
+
+    interface "IHotelService" as IHotelService <<services/hotel_service.ts>> {
+        +searchHotels(q: HotelSearchQueryDTO): Promise<PageDTO<HotelSearchItemDTO>>
+        +getHotelDetails(hotelId: UUID): Promise<HotelDTO>
+        +listPublicRoomTypes(hotelId: UUID, q: PaginationQueryDTO): Promise<PageDTO<RoomTypeDTO>>
+        +getAvailability(hotelId: UUID, q: AvailabilityCriteriaDTO): Promise<PageDTO<AvailabilityItemDTO>>
+        +listHotels(q: AdminHotelQueryDTO, ctx: RequestContext): Promise<PageDTO<HotelDTO>>
+        +createHotel(dto: HotelInputDTO, ctx: RequestContext): Promise<HotelDTO>
+        +getHotel(hotelId: UUID, ctx: RequestContext): Promise<HotelDTO>
+        +patchHotel(hotelId: UUID, dto: HotelPatchDTO, ctx: RequestContext): Promise<HotelDTO>
+        +listRoomTypes(hotelId: UUID, q: PaginationQueryDTO, ctx: RequestContext): Promise<PageDTO<RoomTypeDTO>>
+        +createRoomType(hotelId: UUID, dto: RoomTypeInputDTO, ctx: RequestContext): Promise<RoomTypeDTO>
+        +getRoomType(hotelId: UUID, roomTypeId: UUID, ctx: RequestContext): Promise<RoomTypeDTO>
+        +patchRoomType(hotelId: UUID, roomTypeId: UUID, dto: RoomTypePatchDTO, ctx: RequestContext): Promise<RoomTypeDTO>
+        +listRooms(hotelId: UUID, q: PaginationQueryDTO, ctx: RequestContext): Promise<PageDTO<RoomDTO>>
+        +createRoom(hotelId: UUID, dto: RoomInputDTO, ctx: RequestContext): Promise<RoomDTO>
+        +getRoom(hotelId: UUID, roomId: UUID, ctx: RequestContext): Promise<RoomDTO>
+        +patchRoom(hotelId: UUID, roomId: UUID, dto: RoomPatchDTO, ctx: RequestContext): Promise<RoomDTO>
+    }
+
+    class "HotelService" as HotelService <<services/hotel_service.ts>> {
+        -hotels: IHotelRepository
+        -inventory: IInventoryRepository
+        -bookings: IBookingRepository
+        -audit: IAuditService
+        -db: DatabaseClient
+        +constructor(hotels: IHotelRepository, inventory: IInventoryRepository, bookings: IBookingRepository, audit: IAuditService, db: DatabaseClient)
+    }
+
+    interface "IAdminService" as IAdminService <<services/admin_service.ts>> {
+        +listHotels(q: AdminHotelQueryDTO, ctx: RequestContext): Promise<PageDTO<HotelDTO>>
+        +createHotel(dto: HotelInputDTO, ctx: RequestContext): Promise<HotelDTO>
+        +getHotel(hotelId: UUID, ctx: RequestContext): Promise<HotelDTO>
+        +patchHotel(hotelId: UUID, dto: HotelPatchDTO, ctx: RequestContext): Promise<HotelDTO>
+        +listRoomTypes(hotelId: UUID, q: PaginationQueryDTO, ctx: RequestContext): Promise<PageDTO<RoomTypeDTO>>
+        +createRoomType(hotelId: UUID, dto: RoomTypeInputDTO, ctx: RequestContext): Promise<RoomTypeDTO>
+        +getRoomType(hotelId: UUID, roomTypeId: UUID, ctx: RequestContext): Promise<RoomTypeDTO>
+        +patchRoomType(hotelId: UUID, roomTypeId: UUID, dto: RoomTypePatchDTO, ctx: RequestContext): Promise<RoomTypeDTO>
+        +listRooms(hotelId: UUID, q: PaginationQueryDTO, ctx: RequestContext): Promise<PageDTO<RoomDTO>>
+        +createRoom(hotelId: UUID, dto: RoomInputDTO, ctx: RequestContext): Promise<RoomDTO>
+        +getRoom(hotelId: UUID, roomId: UUID, ctx: RequestContext): Promise<RoomDTO>
+        +patchRoom(hotelId: UUID, roomId: UUID, dto: RoomPatchDTO, ctx: RequestContext): Promise<RoomDTO>
+        +listBookings(q: AdminBookingQueryDTO, ctx: RequestContext): Promise<PageDTO<AdminBookingDTO>>
+        +getBooking(bookingId: UUID, ctx: RequestContext): Promise<AdminBookingDTO>
+        +cancelBooking(bookingId: UUID, dto: CancelInputDTO, key: string, ctx: RequestContext): Promise<CancelResultDTO>
+        +executeCheckIn(bookingId: UUID, key: string, ctx: RequestContext): Promise<AdminBookingDTO>
+        +executeCheckOut(bookingId: UUID, key: string, ctx: RequestContext): Promise<AdminBookingDTO>
+        +markNoShow(bookingId: UUID, key: string, ctx: RequestContext): Promise<AdminBookingDTO>
+        +listRefunds(q: RefundQueryDTO, ctx: RequestContext): Promise<PageDTO<RefundDTO>>
+        +getRefund(refundId: UUID, ctx: RequestContext): Promise<RefundDTO>
+        +retryRefund(refundId: UUID, key: string, ctx: RequestContext): Promise<RefundDTO>
+    }
+
+    class "AdminService" as AdminService <<services/admin_service.ts>> {
+        -hotels: IHotelService
+        -bookings: IBookingService
+        -refunds: IRefundService
+        +constructor(hotels: IHotelService, bookings: IBookingService, refunds: IRefundService)
+    }
+
+    interface "IBookingService" as IBookingService <<services/booking_service.ts>> {
+        +initiateBooking(dto: BookingInputDTO, key: string, ctx: RequestContext): Promise<BookingDTO>
+        +listMyBookings(q: BookingQueryDTO, ctx: RequestContext): Promise<PageDTO<BookingDTO>>
+        +getMyBooking(bookingId: UUID, ctx: RequestContext): Promise<BookingDTO>
+        +cancelBooking(bookingId: UUID, dto: CancelInputDTO, key: string, ctx: RequestContext): Promise<CancelResultDTO>
+        +listBookings(q: AdminBookingQueryDTO, ctx: RequestContext): Promise<PageDTO<AdminBookingDTO>>
+        +getBooking(bookingId: UUID, ctx: RequestContext): Promise<AdminBookingDTO>
+        +executeCheckIn(bookingId: UUID, key: string, ctx: RequestContext): Promise<AdminBookingDTO>
+        +executeCheckOut(bookingId: UUID, key: string, ctx: RequestContext): Promise<AdminBookingDTO>
+        +markNoShow(bookingId: UUID, key: string, ctx: RequestContext): Promise<AdminBookingDTO>
+        +expireHolds(limit: number, ctx: RequestContext): Promise<number>
+    }
+
+    class "BookingService" as BookingService <<services/booking_service.ts>> {
+        -bookings: IBookingRepository
+        -hotels: IHotelRepository
+        -inventory: IInventoryRepository
+        -idempotency: IIdempotencyService
+        -refunds: IRefundService
+        -notifications: INotificationService
+        -audit: IAuditService
+        -db: DatabaseClient
+        -transitions: BookingTransitions
+        +constructor(bookings: IBookingRepository, hotels: IHotelRepository, inventory: IInventoryRepository, idempotency: IIdempotencyService, refunds: IRefundService, notifications: INotificationService, audit: IAuditService, db: DatabaseClient, transitions: BookingTransitions)
+    }
+
+    interface "IPaymentService" as IPaymentService <<services/payment_service.ts>> {
+        +createOrRetrieveOrder(bookingId: UUID, key: string, ctx: RequestContext): Promise<PaymentOrderDTO>
+        +verifyClientCheckout(bookingId: UUID, dto: PaymentVerifyInputDTO, ctx: RequestContext): Promise<VerificationOutcome>
+        +listPayments(bookingId: UUID, q: PaginationQueryDTO, ctx: RequestContext): Promise<PageDTO<PaymentDTO>>
+        +reconcilePending(limit: number, ctx: RequestContext): Promise<number>
+    }
+
+    class "PaymentService" as PaymentService <<services/payment_service.ts>> {
+        -payments: IPaymentRepository
+        -bookings: IBookingRepository
+        -adapter: IPaymentAdapter
+        -idempotency: IIdempotencyService
+        -capture: CaptureProcessor
+        -db: DatabaseClient
+        +constructor(payments: IPaymentRepository, bookings: IBookingRepository, adapter: IPaymentAdapter, idempotency: IIdempotencyService, capture: CaptureProcessor, db: DatabaseClient)
+    }
+
+    class "CaptureProcessor" as CaptureProcessor <<services/capture_processor.ts>> {
+        -payments: IPaymentRepository
+        -bookings: IBookingRepository
+        -transitions: BookingTransitions
+        -refunds: IRefundService
+        -notifications: INotificationService
+        -audit: IAuditService
+        +constructor(payments: IPaymentRepository, bookings: IBookingRepository, transitions: BookingTransitions, refunds: IRefundService, notifications: INotificationService, audit: IAuditService)
+        +apply(capture: VerifiedCapture, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    interface "IWebhookService" as IWebhookService <<services/webhook_service.ts>> {
+        +processWebhook(eventId: string, signature: string, rawPayload: Buffer, ctx: RequestContext): Promise<void>
+        +processPending(limit: number, ctx: RequestContext): Promise<number>
+    }
+
+    class "WebhookService" as WebhookService <<services/webhook_service.ts>> {
+        -inbox: IWebhookRepository
+        -adapter: IPaymentAdapter
+        -capture: CaptureProcessor
+        -refunds: IRefundService
+        -db: DatabaseClient
+        +constructor(inbox: IWebhookRepository, adapter: IPaymentAdapter, capture: CaptureProcessor, refunds: IRefundService, db: DatabaseClient)
+    }
+
+    interface "IRefundService" as IRefundService <<services/refund_service.ts>> {
+        +listBookingRefunds(bookingId: UUID, q: PaginationQueryDTO, ctx: RequestContext): Promise<PageDTO<RefundDTO>>
+        +listRefunds(q: RefundQueryDTO, ctx: RequestContext): Promise<PageDTO<RefundDTO>>
+        +getRefund(refundId: UUID, ctx: RequestContext): Promise<RefundDTO>
+        +retryRefund(refundId: UUID, key: string, ctx: RequestContext): Promise<RefundDTO>
+        +enqueueFullRefund(paymentId: UUID, reason: string, ctx: RequestContext, tx: TransactionContext): Promise<refunds>
+        +applyProviderRefund(refund: ProviderRefund, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +processPending(limit: number, ctx: RequestContext): Promise<number>
+        +reconcilePending(limit: number, ctx: RequestContext): Promise<number>
+    }
+
+    class "RefundService" as RefundService <<services/refund_service.ts>> {
+        -refunds: IRefundRepository
+        -payments: IPaymentRepository
+        -bookings: IBookingRepository
+        -adapter: IPaymentAdapter
+        -idempotency: IIdempotencyService
+        -notifications: INotificationService
+        -audit: IAuditService
+        -db: DatabaseClient
+        +constructor(refunds: IRefundRepository, payments: IPaymentRepository, bookings: IBookingRepository, adapter: IPaymentAdapter, idempotency: IIdempotencyService, notifications: INotificationService, audit: IAuditService, db: DatabaseClient)
+    }
+
+    interface "INotificationService" as INotificationService <<services/notification_service.ts>> {
+        +enqueue(message: NotificationInput, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +deliverPending(limit: number, ctx: RequestContext): Promise<number>
+    }
+
+    class "NotificationService" as NotificationService <<services/notification_service.ts>> {
+        -outbox: IEmailOutboxRepository
+        -email: IEmailClient
+        -cipher: IPayloadCipherClient
+        -templates: EmailTemplateRenderer
+        -db: DatabaseClient
+        +constructor(outbox: IEmailOutboxRepository, email: IEmailClient, cipher: IPayloadCipherClient, templates: EmailTemplateRenderer, db: DatabaseClient)
+    }
+
+    interface "IIdempotencyService" as IIdempotencyService <<services/idempotency_service.ts>> {
+        +claim<T>(scope: IdempotencyScope, key: string, hash: string, ctx: RequestContext, tx: TransactionContext): Promise<ClaimResult<T>>
+        +complete<T>(id: UUID, result: StoredOutcome<T>, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "IdempotencyService" as IdempotencyService <<services/idempotency_service.ts>> {
+        -records: IIdempotencyRepository
+        +constructor(records: IIdempotencyRepository)
+        +claim<T>(scope: IdempotencyScope, key: string, hash: string, ctx: RequestContext, tx: TransactionContext): Promise<ClaimResult<T>>
+        +complete<T>(id: UUID, result: StoredOutcome<T>, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    interface "IAuditService" as IAuditService <<services/audit_service.ts>> {
+        +record(event: AuditEvent, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "AuditService" as AuditService <<services/audit_service.ts>> {
+        -logs: IAuditRepository
+        +constructor(logs: IAuditRepository)
+    }
+}
+
+package "Repository Layer" {
+
+    interface "IUserRepository" as IUserRepository <<repositories/user_repository.ts>> {
+        +findByEmail(email: string): Promise<users | null>
+        +findById(id: UUID): Promise<users | null>
+        +insert(user: users, tx: TransactionContext): Promise<void>
+        +update(user: users, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "UserRepository" as UserRepository <<repositories/user_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IAuditActorRepository" as IAuditActorRepository <<repositories/audit_actor_repository.ts>> {
+        +insert(actor: audit_actors, tx: TransactionContext): Promise<void>
+    }
+
+    class "AuditActorRepository" as AuditActorRepository <<repositories/audit_actor_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "ISessionRepository" as ISessionRepository <<repositories/session_repository.ts>> {
+        +lockByHash(hash: string, tx: TransactionContext): Promise<refresh_sessions | null>
+        +insert(session: refresh_sessions, tx: TransactionContext): Promise<void>
+        +rotate(currentId: UUID, next: refresh_sessions, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +revokeFamily(familyId: UUID, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +revokeAll(userId: UUID, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "SessionRepository" as SessionRepository <<repositories/session_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IPasswordResetRepository" as IPasswordResetRepository <<repositories/password_reset_repository.ts>> {
+        +lockByHash(hash: string, tx: TransactionContext): Promise<password_reset_tokens | null>
+        +insert(token: password_reset_tokens, tx: TransactionContext): Promise<void>
+        +consume(id: UUID, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "PasswordResetRepository" as PasswordResetRepository <<repositories/password_reset_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IHotelRepository" as IHotelRepository <<repositories/hotel_repository.ts>> {
+        +search(q: HotelSearchQueryDTO): Promise<PageDTO<HotelSearchItemDTO>>
+        +findById(id: UUID): Promise<hotels | null>
+        +listOwned(q: AdminHotelQueryDTO, ownerId: UUID): Promise<PageDTO<HotelDTO>>
+        +lockOwned(id: UUID, ownerId: UUID, tx: TransactionContext): Promise<hotels>
+        +insert(hotel: hotels, tx: TransactionContext): Promise<void>
+        +update(hotel: hotels, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "HotelRepository" as HotelRepository <<repositories/hotel_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IInventoryRepository" as IInventoryRepository <<repositories/inventory_repository.ts>> {
+        +listMasterTypes(): Promise<room_type_master[]>
+        +listOfferings(hotelId: UUID, q: PaginationQueryDTO): Promise<PageDTO<RoomTypeDTO>>
+        +findOffering(hotelId: UUID, id: UUID): Promise<hotel_room_types | null>
+        +lockOffering(hotelId: UUID, id: UUID, tx: TransactionContext): Promise<hotel_room_types>
+        +saveOffering(offering: hotel_room_types, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +listRooms(hotelId: UUID, q: PaginationQueryDTO): Promise<PageDTO<RoomDTO>>
+        +findRoom(hotelId: UUID, id: UUID): Promise<rooms | null>
+        +lockRoom(hotelId: UUID, id: UUID, tx: TransactionContext): Promise<rooms>
+        +saveRoom(room: rooms, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +findAvailability(hotelId: UUID, q: AvailabilityCriteriaDTO): Promise<PageDTO<AvailabilityItemDTO>>
+        +lockCandidates(offeringId: UUID, stay: StayRange, tx: TransactionContext): Promise<rooms[]>
+    }
+
+    class "InventoryRepository" as InventoryRepository <<repositories/inventory_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+        +listMasterTypes(): Promise<room_type_master[]>
+        +listOfferings(hotelId: UUID, q: PaginationQueryDTO): Promise<PageDTO<RoomTypeDTO>>
+        +findOffering(hotelId: UUID, id: UUID): Promise<hotel_room_types | null>
+        +lockOffering(hotelId: UUID, id: UUID, tx: TransactionContext): Promise<hotel_room_types>
+        +saveOffering(offering: hotel_room_types, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +listRooms(hotelId: UUID, q: PaginationQueryDTO): Promise<PageDTO<RoomDTO>>
+        +findRoom(hotelId: UUID, id: UUID): Promise<rooms | null>
+        +lockRoom(hotelId: UUID, id: UUID, tx: TransactionContext): Promise<rooms>
+        +saveRoom(room: rooms, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +findAvailability(hotelId: UUID, q: AvailabilityCriteriaDTO): Promise<PageDTO<AvailabilityItemDTO>>
+        +lockCandidates(offeringId: UUID, stay: StayRange, tx: TransactionContext): Promise<rooms[]>
+    }
+
+    interface "IBookingRepository" as IBookingRepository <<repositories/booking_repository.ts>> {
+        +insert(booking: bookings, tx: TransactionContext): Promise<void>
+        +findVisible(id: UUID, ctx: RequestContext): Promise<bookings | null>
+        +listVisible(q: BookingQueryDTO, ctx: RequestContext): Promise<PageDTO<BookingDTO>>
+        +listOwned(q: AdminBookingQueryDTO, ctx: RequestContext): Promise<PageDTO<AdminBookingDTO>>
+        +lockById(id: UUID, tx: TransactionContext): Promise<bookings>
+        +findOverlaps(roomId: UUID, stay: StayRange, tx: TransactionContext): Promise<bookings[]>
+        +save(booking: bookings, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +lockExpired(limit: number, now: Date, tx: TransactionContext): Promise<bookings[]>
+    }
+
+    class "BookingRepository" as BookingRepository <<repositories/booking_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IPaymentRepository" as IPaymentRepository <<repositories/payment_repository.ts>> {
+        +reserveOrder(booking: bookings, ctx: RequestContext, tx: TransactionContext): Promise<payment_orders>
+        +lockOrder(id: UUID, tx: TransactionContext): Promise<payment_orders>
+        +findOrderByProviderId(id: string, tx: TransactionContext): Promise<payment_orders | null>
+        +saveOrder(order: payment_orders, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +upsertVerifiedCapture(capture: VerifiedCapture, ctx: RequestContext, tx: TransactionContext): Promise<payments>
+        +listForBooking(bookingId: UUID, q: PaginationQueryDTO): Promise<PageDTO<PaymentDTO>>
+        +lockPayment(id: UUID, tx: TransactionContext): Promise<payments>
+        +markApplied(id: UUID, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +claimDue(limit: number, leaseSeconds: number, tx: TransactionContext): Promise<payment_orders[]>
+    }
+
+    class "PaymentRepository" as PaymentRepository <<repositories/payment_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IRefundRepository" as IRefundRepository <<repositories/refund_repository.ts>> {
+        +enqueueOnce(paymentId: UUID, reason: string, ctx: RequestContext, tx: TransactionContext): Promise<refunds>
+        +listVisible(q: RefundQueryDTO, ctx: RequestContext): Promise<PageDTO<RefundDTO>>
+        +listForBooking(bookingId: UUID, q: PaginationQueryDTO): Promise<PageDTO<RefundDTO>>
+        +lockById(id: UUID, tx: TransactionContext): Promise<refunds>
+        +claimDue(limit: number, leaseSeconds: number, tx: TransactionContext): Promise<refunds[]>
+        +save(refund: refunds, lease: Lease, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "RefundRepository" as RefundRepository <<repositories/refund_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IWebhookRepository" as IWebhookRepository <<repositories/webhook_repository.ts>> {
+        +insertOnce(event: webhook_events, tx: TransactionContext): Promise<boolean>
+        +claimDue(limit: number, leaseSeconds: number, tx: TransactionContext): Promise<webhook_events[]>
+        +markProcessed(id: UUID, lease: Lease, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +retry(id: UUID, lease: Lease, failure: RetryFailure, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "WebhookRepository" as WebhookRepository <<repositories/webhook_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IEmailOutboxRepository" as IEmailOutboxRepository <<repositories/email_outbox_repository.ts>> {
+        +enqueueOnce(message: email_outbox, tx: TransactionContext): Promise<void>
+        +claimDue(limit: number, leaseSeconds: number, tx: TransactionContext): Promise<email_outbox[]>
+        +markSent(id: UUID, lease: Lease, receipt: DeliveryReceipt, ctx: RequestContext, tx: TransactionContext): Promise<void>
+        +retry(id: UUID, lease: Lease, failure: RetryFailure, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "EmailOutboxRepository" as EmailOutboxRepository <<repositories/email_outbox_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    interface "IIdempotencyRepository" as IIdempotencyRepository <<repositories/idempotency_repository.ts>> {
+        +claim<T>(scope: IdempotencyScope, key: string, hash: string, ctx: RequestContext, tx: TransactionContext): Promise<ClaimResult<T>>
+        +complete<T>(id: UUID, result: StoredOutcome<T>, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "IdempotencyRepository" as IdempotencyRepository <<repositories/idempotency_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+        +claim<T>(scope: IdempotencyScope, key: string, hash: string, ctx: RequestContext, tx: TransactionContext): Promise<ClaimResult<T>>
+        +complete<T>(id: UUID, result: StoredOutcome<T>, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    interface "IAuditRepository" as IAuditRepository <<repositories/audit_repository.ts>> {
+        +append(event: AuditEvent, ctx: RequestContext, tx: TransactionContext): Promise<void>
+    }
+
+    class "AuditRepository" as AuditRepository <<repositories/audit_repository.ts>> {
+        -db: DatabaseClient
+        +constructor(db: DatabaseClient)
+    }
+
+    class "DatabaseClient" as DatabaseClient <<repositories/database.ts>> {
+        -orm: OrmClient
+        +constructor(settings: Settings)
+        +connect(): Promise<void>
+        +transaction<T>(work: TransactionWork<T>): Promise<T>
+        +read<T>(work: ReadWork<T>): Promise<T>
+        +execute<T>(tx: TransactionContext, work: QueryWork<T>): Promise<T>
+        +ping(): Promise<void>
+        +disconnect(): Promise<void>
+    }
+
+    class "TransactionContext" as TransactionContext <<repositories/database.ts>> {
+        +id: UUID
+    }
+}
+
+package "External Client Layer" {
+
+    interface "IPaymentAdapter" as IPaymentAdapter <<client/razorpay_adapter.ts>> {
+        +createOrder(input: ProviderOrderInput): Promise<ProviderOrder>
+        +fetchOrder(orderId: string): Promise<ProviderOrder>
+        +findOrdersByReceipt(receipt: string): Promise<ProviderOrder[]>
+        +fetchPayment(paymentId: string): Promise<ProviderPayment>
+        +listOrderPayments(orderId: string): Promise<ProviderPayment[]>
+        +verifyCheckoutSignature(dto: PaymentVerifyInputDTO): boolean
+        +verifyWebhookSignature(signature: string, payload: Buffer): boolean
+        +refundPayment(input: ProviderRefundInput): Promise<ProviderRefund>
+        +fetchRefund(refundId: string): Promise<ProviderRefund>
+        +listRefunds(paymentId: string): Promise<ProviderRefund[]>
+    }
+
+    class "RazorpayAdapter" as RazorpayAdapter <<client/razorpay_adapter.ts>> {
+        -settings: Settings
+        +constructor(settings: Settings)
+        +createOrder(input: ProviderOrderInput): Promise<ProviderOrder>
+        +fetchOrder(orderId: string): Promise<ProviderOrder>
+        +findOrdersByReceipt(receipt: string): Promise<ProviderOrder[]>
+        +fetchPayment(paymentId: string): Promise<ProviderPayment>
+        +listOrderPayments(orderId: string): Promise<ProviderPayment[]>
+        +verifyCheckoutSignature(dto: PaymentVerifyInputDTO): boolean
+        +verifyWebhookSignature(signature: string, payload: Buffer): boolean
+        +refundPayment(input: ProviderRefundInput): Promise<ProviderRefund>
+        +fetchRefund(refundId: string): Promise<ProviderRefund>
+        +listRefunds(paymentId: string): Promise<ProviderRefund[]>
+    }
+
+    interface "IEmailClient" as IEmailClient <<client/email_client.ts>> {
+        +send(message: RenderedEmail): Promise<DeliveryReceipt>
+    }
+
+    class "EmailClient" as EmailClient <<client/email_client.ts>> {
+        -settings: Settings
+        +constructor(settings: Settings)
+        +send(message: RenderedEmail): Promise<DeliveryReceipt>
+    }
+
+    interface "ITokenClient" as ITokenClient <<client/token_client.ts>> {
+        +issueAccessToken(claims: AccessClaims): string
+        +verifyAccessToken(token: string): AccessClaims
+        +generateOpaqueToken(): string
+        +hashOpaqueToken(token: string): string
+    }
+
+    class "TokenClient" as TokenClient <<client/token_client.ts>> {
+        -settings: Settings
+        +constructor(settings: Settings)
+        +issueAccessToken(claims: AccessClaims): string
+        +verifyAccessToken(token: string): AccessClaims
+        +generateOpaqueToken(): string
+        +hashOpaqueToken(token: string): string
+    }
+
+    interface "IPasswordClient" as IPasswordClient <<client/password_client.ts>> {
+        +hash(password: string): Promise<string>
+        +verify(password: string, hash: string): Promise<boolean>
+    }
+
+    class "PasswordClient" as PasswordClient <<client/password_client.ts>> {
+        +constructor()
+        +hash(password: string): Promise<string>
+        +verify(password: string, hash: string): Promise<boolean>
+    }
+
+    interface "IPayloadCipherClient" as IPayloadCipherClient <<client/payload_cipher_client.ts>> {
+        +encrypt(data: JsonObject): EncryptedPayload
+        +decrypt(data: EncryptedPayload): JsonObject
+    }
+
+    class "PayloadCipherClient" as PayloadCipherClient <<client/payload_cipher_client.ts>> {
+        -settings: Settings
+        +constructor(settings: Settings)
+        +encrypt(data: JsonObject): EncryptedPayload
+        +decrypt(data: EncryptedPayload): JsonObject
+    }
+
+    class "EmailTemplateRenderer" as EmailTemplateRenderer <<resources/email_templates.ts>> {
+        +render(code: string, version: number, data: JsonObject): RenderedEmail
+    }
+}
+
+package "Background Jobs" {
+
+    interface "IJob" as IJob <<jobs/job.ts>> {
+        +name: string
+        +run(ctx: RequestContext): Promise<void>
+    }
+
+    class "HoldExpiryJob" as HoldExpiryJob <<jobs/hold_expiry_job.ts>> {
+        +name: string
+        -service: IBookingService
+        -batchSize: number
+        +constructor(service: IBookingService, batchSize: number)
+        +run(ctx: RequestContext): Promise<void>
+    }
+
+    class "EmailDeliveryJob" as EmailDeliveryJob <<jobs/email_delivery_job.ts>> {
+        +name: string
+        -service: INotificationService
+        -batchSize: number
+        +constructor(service: INotificationService, batchSize: number)
+        +run(ctx: RequestContext): Promise<void>
+    }
+
+    class "WebhookProcessingJob" as WebhookProcessingJob <<jobs/webhook_processing_job.ts>> {
+        +name: string
+        -service: IWebhookService
+        -batchSize: number
+        +constructor(service: IWebhookService, batchSize: number)
+        +run(ctx: RequestContext): Promise<void>
+    }
+
+    class "PaymentReconciliationJob" as PaymentReconciliationJob <<jobs/payment_reconciliation_job.ts>> {
+        +name: string
+        -service: IPaymentService
+        -batchSize: number
+        +constructor(service: IPaymentService, batchSize: number)
+        +run(ctx: RequestContext): Promise<void>
+    }
+
+    class "RefundProcessingJob" as RefundProcessingJob <<jobs/refund_processing_job.ts>> {
+        +name: string
+        -service: IRefundService
+        -batchSize: number
+        +constructor(service: IRefundService, batchSize: number)
+        +run(ctx: RequestContext): Promise<void>
+    }
+
+    class "RefundReconciliationJob" as RefundReconciliationJob <<jobs/refund_reconciliation_job.ts>> {
+        +name: string
+        -service: IRefundService
+        -batchSize: number
+        +constructor(service: IRefundService, batchSize: number)
+        +run(ctx: RequestContext): Promise<void>
+    }
+}
+
+package "Response Models" {
+
+    class "APIResponse<T>" as APIResponse <<models/responses/response_models.ts>> {
+        +status: "success" | "error"
+        +code: number
+        +message: string
+        +data: T | null
+        +errors: ErrorResponseDTO[]
+        +timestamp: string
+        +request_id: string
+    }
+
+    class "ErrorResponseDTO" as ErrorResponseDTO <<models/responses/response_models.ts>> {
+        +field: string | null
+        +code: string
+        +message: string
+    }
+
+    class "ResponseBuilder" as ResponseBuilder <<models/response_builder.ts>> {
+        +success<T>(code: number, message: string, data: T, ctx: RequestContext): APIResponse<T>
+        +acknowledge(code: number, message: string, ctx: RequestContext): APIResponse<null>
+        +error(error: AppError, ctx: RequestContext): APIResponse<null>
+    }
+}
+
+package "Request and Response DTOs" {
+
+    class "PaginationQueryDTO" as PaginationQueryDTO <<models/dtos/pagination_models.ts>> {
+        +page: number {min=1, default=1}
+        +limit: number {min=1, max=100, default=20}
+    }
+
+    class "PageMetaDTO" as PageMetaDTO <<models/dtos/pagination_models.ts>> {
+        +page: number
+        +limit: number
+        +totalItems: number
+        +totalPages: number
+    }
+
+    class "IdempotencyHeaderDTO" as IdempotencyHeaderDTO <<models/dtos/header_models.ts>> {
+        +Idempotency-Key: string {minLength=8, maxLength=128}
+    }
+
+    class "HealthDTO" as HealthDTO <<models/dtos/default_models.ts>> {
+        +status: "UP"
+        +service: string
+    }
+
+    class "RegisterInputDTO" as RegisterInputDTO <<models/dtos/auth_models.ts>> {
+        +name: string {minLength=2, maxLength=100}
+        +email: string {format=email, maxLength=254}
+        +phone: string {E.164}
+        +password: string {minLength=12, maxLength=128}
+    }
+
+    class "LoginInputDTO" as LoginInputDTO <<models/dtos/auth_models.ts>> {
+        +email: string {format=email}
+        +password: string
+    }
+
+    class "RefreshInputDTO" as RefreshInputDTO <<models/dtos/auth_models.ts>> {
+        +refreshToken: string {minLength=1}
+    }
+
+    class "ForgotPasswordInputDTO" as ForgotPasswordInputDTO <<models/dtos/auth_models.ts>> {
+        +email: string {format=email}
+    }
+
+    class "ResetPasswordInputDTO" as ResetPasswordInputDTO <<models/dtos/auth_models.ts>> {
+        +token: string
+        +newPassword: string {minLength=12, maxLength=128}
+    }
+
+    class "UserDTO" as UserDTO <<models/dtos/user_models.ts>> {
+        +id: string {UUID}
+        +name: string
+        +email: string
+        +phone: string
+        +role: "CUSTOMER" | "ADMIN"
+        +createdAt: string {ISO 8601}
+    }
+
+    class "TokensDTO" as TokensDTO <<models/dtos/auth_models.ts>> {
+        +accessToken: string
+        +refreshToken: string
+        +tokenType: "Bearer"
+        +expiresIn: number {seconds}
+    }
+
+    class "AuthResultDTO" as AuthResultDTO <<models/dtos/auth_models.ts>> {
+        +user: UserDTO
+        +tokens: TokensDTO
+    }
+
+    class "ProfileUpdateDTO" as ProfileUpdateDTO <<models/dtos/user_models.ts>> {
+        +name?: string {minLength=2, maxLength=100}
+        +phone?: string {E.164}
+    }
+
+    class "PasswordChangeDTO" as PasswordChangeDTO <<models/dtos/user_models.ts>> {
+        +currentPassword: string
+        +newPassword: string {minLength=12, maxLength=128}
+    }
+
+    class "HotelSearchQueryDTO" as HotelSearchQueryDTO <<models/dtos/hotel_models.ts>> {
+        +city?: string
+        +latitude?: number {min=-90, max=90}
+        +longitude?: number {min=-180, max=180}
+        +radiusKm?: number {greater than 0, max=100, default=10}
+        +checkIn?: string {YYYY-MM-DD}
+        +checkOut?: string {YYYY-MM-DD}
+        +guests?: number {min=1, max=10}
+        +sort?: "distance" | "price_asc" | "name"
+        +page?: number
+        +limit?: number
+    }
+
+    class "LocationDTO" as LocationDTO <<models/dtos/hotel_models.ts>> {
+        +address: string
+        +city: string
+        +state: string
+        +countryCode: "IN"
+        +postalCode: string {six digits}
+        +latitude: number
+        +longitude: number
+        +timezone: "Asia/Kolkata"
+    }
+
+    class "HotelDTO" as HotelDTO <<models/dtos/hotel_models.ts>> {
+        +id: string
+        +name: string
+        +description: string
+        +location: LocationDTO
+        +amenities: string[]
+        +imageUrls: string[]
+        +checkInTime: string {HH:mm}
+        +checkOutTime: string {HH:mm}
+        +isActive: boolean
+        +createdAt: string
+        +updatedAt: string
+    }
+
+    class "HotelSearchItemDTO" as HotelSearchItemDTO <<models/dtos/hotel_models.ts>> {
+        +hotel: HotelDTO
+        +distanceKm: number | null
+        +availableRoomCount: number | null
+        +startingPricePerNight: number | null
+        +currency: "INR"
+    }
+
+    class "HotelSearchItemListDTO" as HotelSearchItemListDTO <<models/dtos/hotel_models.ts>> {
+        +items: HotelSearchItemDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "RoomTypeDTO" as RoomTypeDTO <<models/dtos/room_models.ts>> {
+        +id: string
+        +hotelId: string
+        +name: string
+        +description: string
+        +maxGuests: number
+        +bedArrangement: string
+        +amenities: string[]
+        +imageUrls: string[]
+        +pricePerNight: number
+        +currency: "INR"
+        +isActive: boolean
+    }
+
+    class "RoomTypeListDTO" as RoomTypeListDTO <<models/dtos/room_models.ts>> {
+        +items: RoomTypeDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "PriceDTO" as PriceDTO <<models/dtos/booking_models.ts>> {
+        +nights: number
+        +pricePerNight: number
+        +totalAmount: number
+        +currency: "INR"
+    }
+
+    class "AvailabilityItemDTO" as AvailabilityItemDTO <<models/dtos/hotel_models.ts>> {
+        +roomType: RoomTypeDTO
+        +availableRoomCount: number
+        +price: PriceDTO
+    }
+
+    class "AvailabilityItemListDTO" as AvailabilityItemListDTO <<models/dtos/hotel_models.ts>> {
+        +items: AvailabilityItemDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "BookingInputDTO" as BookingInputDTO <<models/dtos/booking_models.ts>> {
+        +hotelId: string {UUID}
+        +roomTypeId: string {UUID}
+        +checkIn: string {YYYY-MM-DD}
+        +checkOut: string {YYYY-MM-DD}
+        +guests: number {min=1, max=10}
+        +guestName: string {minLength=2, maxLength=100}
+        +guestPhone: string {E.164}
+        +specialRequests?: string {maxLength=1000}
+        +expectedTotalAmount: number {integer paise, min=0}
+    }
+
+    class "BookingDTO" as BookingDTO <<models/dtos/booking_models.ts>> {
+        +id: string
+        +reference: string
+        +customerId: string
+        +hotelId: string
+        +roomTypeId: string
+        +checkIn: string
+        +checkOut: string
+        +guests: number
+        +guestName: string
+        +guestPhone: string
+        +specialRequests: string
+        +status: BookingStatus
+        +paymentStatus: "UNPAID" | "PAID" | "REFUND_PENDING" | "REFUNDED" | "REFUND_FAILED"
+        +price: PriceDTO
+        +holdExpiresAt: string | null
+        +createdAt: string
+        +cancelledAt: string | null
+    }
+
+    class "BookingListDTO" as BookingListDTO <<models/dtos/booking_models.ts>> {
+        +items: BookingDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "CancelInputDTO" as CancelInputDTO <<models/dtos/booking_models.ts>> {
+        +reason: string {minLength=3, maxLength=500}
+    }
+
+    class "CancelResultDTO" as CancelResultDTO <<models/dtos/booking_models.ts>> {
+        +booking: BookingDTO
+        +refund: RefundDTO | null
+    }
+
+    class "PaymentOrderDTO" as PaymentOrderDTO <<models/dtos/payment_models.ts>> {
+        +id: string
+        +bookingId: string
+        +provider: "RAZORPAY"
+        +mode: "TEST"
+        +razorpayOrderId: string
+        +keyId: string {public key ID}
+        +amount: number
+        +currency: "INR"
+        +status: "CREATED" | "PAID"
+        +holdExpiresAt: string
+    }
+
+    class "PaymentVerifyInputDTO" as PaymentVerifyInputDTO <<models/dtos/payment_models.ts>> {
+        +razorpay_order_id: string
+        +razorpay_payment_id: string
+        +razorpay_signature: string {64 lowercase hexadecimal characters}
+    }
+
+    class "PaymentDTO" as PaymentDTO <<models/dtos/payment_models.ts>> {
+        +id: string
+        +bookingId: string
+        +razorpayOrderId: string
+        +razorpayPaymentId: string
+        +amount: number
+        +currency: "INR"
+        +status: "CREATED" | "AUTHORIZED" | "CAPTURED" | "FAILED" | "REFUNDED"
+        +failureCode: string | null
+        +createdAt: string
+    }
+
+    class "VerificationResultDTO" as VerificationResultDTO <<models/dtos/payment_models.ts>> {
+        +payment: PaymentDTO
+        +booking: BookingDTO
+    }
+
+    class "PaymentListDTO" as PaymentListDTO <<models/dtos/payment_models.ts>> {
+        +items: PaymentDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "RefundDTO" as RefundDTO <<models/dtos/refund_models.ts>> {
+        +id: string
+        +bookingId: string
+        +paymentId: string
+        +razorpayRefundId: string | null
+        +amount: number
+        +currency: "INR"
+        +status: "PENDING" | "PROCESSED" | "FAILED"
+        +reason: string
+        +createdAt: string
+    }
+
+    class "RefundListDTO" as RefundListDTO <<models/dtos/refund_models.ts>> {
+        +items: RefundDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "HotelInputDTO" as HotelInputDTO <<models/dtos/hotel_models.ts>> {
+        +name: string {minLength=2, maxLength=150}
+        +description: string {maxLength=3000}
+        +location: LocationDTO
+        +amenities: string[] {maxItems=30, unique}
+        +imageUrls: string[] {maxItems=10, HTTPS}
+        +checkInTime: string {HH:mm}
+        +checkOutTime: string {HH:mm}
+        +isActive: boolean
+    }
+
+    class "HotelPatchDTO" as HotelPatchDTO <<models/dtos/hotel_models.ts>> {
+        +name?: string {minLength=2, maxLength=150}
+        +description?: string {maxLength=3000}
+        +location?: LocationDTO
+        +amenities?: string[] {maxItems=30, unique}
+        +imageUrls?: string[] {maxItems=10, HTTPS}
+        +checkInTime?: string {HH:mm}
+        +checkOutTime?: string {HH:mm}
+        +isActive?: boolean
+    }
+
+    class "RoomTypeInputDTO" as RoomTypeInputDTO <<models/dtos/room_models.ts>> {
+        +name: string {minLength=2, maxLength=80}
+        +description: string {maxLength=2000}
+        +maxGuests: number {min=1, max=10}
+        +bedArrangement: string {minLength=1, maxLength=200}
+        +amenities: string[] {maxItems=30}
+        +imageUrls: string[] {maxItems=10}
+        +pricePerNight: number {integer paise, min=0}
+        +currency: "INR"
+        +isActive: boolean
+    }
+
+    class "RoomTypePatchDTO" as RoomTypePatchDTO <<models/dtos/room_models.ts>> {
+        +name?: string {minLength=2, maxLength=80}
+        +description?: string {maxLength=2000}
+        +maxGuests?: number {min=1, max=10}
+        +bedArrangement?: string {minLength=1, maxLength=200}
+        +amenities?: string[] {maxItems=30}
+        +imageUrls?: string[] {maxItems=10}
+        +pricePerNight?: number {integer paise, min=0}
+        +currency?: "INR"
+        +isActive?: boolean
+    }
+
+    class "RoomInputDTO" as RoomInputDTO <<models/dtos/room_models.ts>> {
+        +roomTypeId: string {UUID}
+        +roomNumber: string {minLength=1, maxLength=20}
+        +floor: number {integer, min=0, max=200}
+        +status: "ACTIVE" | "MAINTENANCE" | "INACTIVE"
+    }
+
+    class "RoomPatchDTO" as RoomPatchDTO <<models/dtos/room_models.ts>> {
+        +roomNumber?: string {minLength=1, maxLength=20}
+        +floor?: number {integer, min=0, max=200}
+        +status?: "ACTIVE" | "MAINTENANCE" | "INACTIVE"
+    }
+
+    class "RoomDTO" as RoomDTO <<models/dtos/room_models.ts>> {
+        +id: string
+        +hotelId: string
+        +roomTypeId: string
+        +roomNumber: string
+        +floor: number
+        +status: "ACTIVE" | "MAINTENANCE" | "INACTIVE"
+    }
+
+    class "RoomListDTO" as RoomListDTO <<models/dtos/room_models.ts>> {
+        +items: RoomDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "AdminBookingDTO" as AdminBookingDTO <<models/dtos/booking_models.ts>> {
+        +booking: BookingDTO
+        +assignedRoomId: string
+        +roomNumber: string
+    }
+
+    class "AdminBookingListDTO" as AdminBookingListDTO <<models/dtos/booking_models.ts>> {
+        +items: AdminBookingDTO[]
+        +pagination: PageMetaDTO
+    }
+
+    class "RazorpayWebhookHeadersDTO" as RazorpayWebhookHeadersDTO <<models/dtos/webhook_models.ts>> {
+        +X-Razorpay-Signature: string
+        +x-razorpay-event-id: string
+    }
+
+    class "RazorpayWebhookPayloadDTO" as RazorpayWebhookPayloadDTO <<models/dtos/webhook_models.ts>> {
+        +entity: "event"
+        +account_id: string
+        +event: string
+        +contains: string[]
+        +payload: JsonObject
+        +created_at: number
+    }
+
+    enum "UserRole" as UserRole <<models/dtos/user_models.ts>> {
+        CUSTOMER
+        ADMIN
+    }
+
+    enum "BookingStatus" as BookingStatus <<models/dtos/booking_models.ts>> {
+        PENDING_PAYMENT
+        CONFIRMED
+        CANCELLED
+        EXPIRED
+        CHECKED_IN
+        CHECKED_OUT
+        NO_SHOW
+    }
+}
+
+package "Internal Models" {
+
+    class "BookingTransitions" as BookingTransitions <<models/booking_domain.ts>> {
+        +confirm(b: bookings, now: Date): bookings
+        +cancel(b: bookings, reason: string, now: Date, timezone: string): bookings
+        +expire(b: bookings, now: Date): bookings
+        +checkIn(b: bookings, now: Date, timezone: string): bookings
+        +checkOut(b: bookings, now: Date, timezone: string): bookings
+        +noShow(b: bookings, now: Date, timezone: string): bookings
+    }
+
+    class "AppError" as AppError <<utils/exceptions/exceptions.ts>> {
+        +code: string
+        +httpStatus: number
+        +message: string
+        +details: ErrorResponseDTO[]
+        +cause: unknown
+        +constructor(code: string, httpStatus: number, message: string, details: ErrorResponseDTO[], cause: unknown)
+    }
+
+    class "PageDTO<T>" as PageDTO <<models/dtos/pagination_models.ts>> {
+        +items: T[]
+        +pagination: PageMetaDTO
+    }
+
+    class "RequestContext" as RequestContext <<models/request_context.ts>> {
+        +requestId: string
+        +actorId: UUID
+        +userId: UUID | null
+        +role: UserRole | null
+    }
+
+    class "AvailabilityCriteriaDTO" as AvailabilityCriteriaDTO <<models/dtos/hotel_models.ts>> {
+        +checkIn: LocalDate
+        +checkOut: LocalDate
+        +guests: number
+        +page?: number
+        +limit?: number
+    }
+
+    class "BookingQueryDTO" as BookingQueryDTO <<models/dtos/booking_models.ts>> {
+        +status?: BookingStatus
+        +page?: number
+        +limit?: number
+    }
+
+    class "AdminBookingQueryDTO" as AdminBookingQueryDTO <<models/dtos/booking_models.ts>> {
+        +hotelId?: UUID
+        +status?: BookingStatus
+        +checkInFrom?: LocalDate
+        +checkInTo?: LocalDate
+        +page?: number
+        +limit?: number
+    }
+
+    class "AdminHotelQueryDTO" as AdminHotelQueryDTO <<models/dtos/hotel_models.ts>> {
+        +isActive?: boolean
+        +page?: number
+        +limit?: number
+    }
+
+    class "RefundQueryDTO" as RefundQueryDTO <<models/dtos/refund_models.ts>> {
+        +status?: "PENDING" | "PROCESSED" | "FAILED"
+        +page?: number
+        +limit?: number
+    }
+
+    class "HotelParamsDTO" as HotelParamsDTO <<models/dtos/parameter_models.ts>> {
+        +hotelId: UUID
+    }
+
+    class "RoomTypeParamsDTO" as RoomTypeParamsDTO <<models/dtos/parameter_models.ts>> {
+        +hotelId: UUID
+        +roomTypeId: UUID
+    }
+
+    class "RoomParamsDTO" as RoomParamsDTO <<models/dtos/parameter_models.ts>> {
+        +hotelId: UUID
+        +roomId: UUID
+    }
+
+    class "BookingParamsDTO" as BookingParamsDTO <<models/dtos/parameter_models.ts>> {
+        +bookingId: UUID
+    }
+
+    class "RefundParamsDTO" as RefundParamsDTO <<models/dtos/parameter_models.ts>> {
+        +refundId: UUID
+    }
+
+    class "VerificationOutcome" as VerificationOutcome <<models/dtos/payment_models.ts>> {
+        +httpStatus: 200 | 202
+        +data: VerificationResultDTO
+    }
+
+    class "RequestSchema<T>" as RequestSchema <<models/validation_models.ts>> {
+        +body: RuntimeSchema | null
+        +params: RuntimeSchema | null
+        +query: RuntimeSchema | null
+        +headers: RuntimeSchema | null
+    }
+
+    class "ValidatedInput<T>" as ValidatedInput <<models/validation_models.ts>> {
+        +body: T
+        +params: JsonObject
+        +query: JsonObject
+        +headers: JsonObject
+    }
+
+    class "StayRange" as StayRange <<models/booking_domain.ts>> {
+        +checkIn: LocalDate
+        +checkOut: LocalDate
+    }
+
+    class "Lease" as Lease <<models/job_models.ts>> {
+        +until: Date
+    }
+
+    class "RetryFailure" as RetryFailure <<models/job_models.ts>> {
+        +code: string
+        +safeMessage: string
+        +retryAt: Date
+        +outcomeUnknown: boolean
+    }
+
+    class "IdempotencyScope" as IdempotencyScope <<models/idempotency_models.ts>> {
+        +userId: UUID
+        +operation: string
+    }
+
+    class "StoredOutcome<T>" as StoredOutcome <<models/idempotency_models.ts>> {
+        +httpStatus: number
+        +message: string
+        +data: T | null
+    }
+
+    class "ClaimResult<T>" as ClaimResult <<models/idempotency_models.ts>> {
+        +kind: "claimed" | "replay" | "conflict" | "inProgress"
+        +recordId: UUID
+        +outcome: StoredOutcome<T> | null
+    }
+
+    class "AuditEvent" as AuditEvent <<models/audit_models.ts>> {
+        +action: string
+        +entityType: string
+        +entityId: UUID
+        +changes: JsonObject
+    }
+
+    class "NotificationInput" as NotificationInput <<models/notification_models.ts>> {
+        +recipientUserId: UUID | null
+        +recipientEmail: string
+        +bookingId: UUID | null
+        +passwordResetTokenId: UUID | null
+        +templateCode: string
+        +templateVersion: number
+        +templateData: JsonObject
+        +sensitiveData: JsonObject | null
+        +deduplicationKey: string
+    }
+
+    class "AccessClaims" as AccessClaims <<models/dtos/auth_models.ts>> {
+        +subject: UUID
+        +actorId: UUID
+        +role: UserRole
+        +issuedAt: number
+        +expiresAt: number
+    }
+
+    class "EncryptedPayload" as EncryptedPayload <<models/notification_models.ts>> {
+        +ciphertext: Buffer
+        +keyId: string
+    }
+
+    class "RenderedEmail" as RenderedEmail <<models/notification_models.ts>> {
+        +to: string
+        +subject: string
+        +html: string
+        +text: string
+        +messageKey: string
+    }
+
+    class "DeliveryReceipt" as DeliveryReceipt <<models/notification_models.ts>> {
+        +providerMessageId: string
+    }
+
+    class "ProviderOrderInput" as ProviderOrderInput <<models/provider_models.ts>> {
+        +receipt: UUID
+        +amount: bigint
+        +currency: "INR"
+    }
+
+    class "ProviderOrder" as ProviderOrder <<models/provider_models.ts>> {
+        +id: string
+        +receipt: string
+        +amount: bigint
+        +currency: string
+        +status: string
+    }
+
+    class "ProviderPayment" as ProviderPayment <<models/provider_models.ts>> {
+        +id: string
+        +orderId: string
+        +amount: bigint
+        +currency: string
+        +status: string
+    }
+
+    class "VerifiedCapture" as VerifiedCapture <<models/provider_models.ts>> {
+        +paymentId: string
+        +orderId: string
+        +accountId: string
+        +amount: bigint
+        +currency: string
+        +capturedAt: Date
+    }
+
+    class "ProviderRefundInput" as ProviderRefundInput <<models/provider_models.ts>> {
+        +localRefundId: UUID
+        +paymentId: string
+        +amount: bigint
+    }
+
+    class "ProviderRefund" as ProviderRefund <<models/provider_models.ts>> {
+        +id: string
+        +paymentId: string
+        +localRefundId: UUID | null
+        +amount: bigint
+        +currency: string
+        +status: string
+    }
+
+    class "ValidationSchemas" as ValidationSchemas <<models/validation_schemas.ts>> {
+        +forEndpoint(operationId: string): RequestSchema<unknown>
+    }
+}
+
+package "Persistence Schemas" {
+
+    class "audit_actors" as audit_actors <<schema.prisma>> {
+        +id: UUID [PK]
+        +actor_type: VARCHAR(12) [NOT NULL]
+        +actor_name: VARCHAR(100) [NOT NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "users" as users <<schema.prisma>> {
+        +id: UUID [PK]
+        +audit_actor_id: UUID [FK, UNIQUE, NOT NULL]
+        +name: VARCHAR(100) [NOT NULL]
+        +email: VARCHAR(254) [UNIQUE, NOT NULL]
+        +phone: VARCHAR(16) [NOT NULL]
+        +password_hash: TEXT [NOT NULL]
+        +role: VARCHAR(16) [NOT NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "refresh_sessions" as refresh_sessions <<schema.prisma>> {
+        +id: UUID [PK]
+        +user_id: UUID [FK, NOT NULL]
+        +family_id: UUID [NOT NULL]
+        +token_hash: CHAR(64) [UNIQUE, NOT NULL]
+        +expires_at: TIMESTAMPTZ [NOT NULL]
+        +session_expires_at: TIMESTAMPTZ [NOT NULL]
+        +revoked_at: TIMESTAMPTZ [NULL]
+        +replaced_by_id: UUID [FK, UNIQUE, NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "password_reset_tokens" as password_reset_tokens <<schema.prisma>> {
+        +id: UUID [PK]
+        +user_id: UUID [FK, NOT NULL]
+        +token_hash: CHAR(64) [UNIQUE, NOT NULL]
+        +expires_at: TIMESTAMPTZ [NOT NULL]
+        +used_at: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "hotels" as hotels <<schema.prisma>> {
+        +id: UUID [PK]
+        +owner_id: UUID [FK, NOT NULL]
+        +name: VARCHAR(150) [NOT NULL]
+        +description: VARCHAR(3000) [NOT NULL]
+        +address: TEXT [NOT NULL]
+        +city: VARCHAR(100) [NOT NULL]
+        +state: VARCHAR(100) [NOT NULL]
+        +country_code: CHAR(2) [NOT NULL]
+        +postal_code: CHAR(6) [NOT NULL]
+        +location: GEOGRAPHY(POINT, 4326) [NOT NULL]
+        +timezone: VARCHAR(64) [NOT NULL]
+        +amenities: TEXT[] [NOT NULL]
+        +image_urls: TEXT[] [NOT NULL]
+        +check_in_time: TIME [NOT NULL]
+        +check_out_time: TIME [NOT NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "room_type_master" as room_type_master <<schema.prisma>> {
+        +id: UUID [PK]
+        +code: VARCHAR(30) [UNIQUE, NOT NULL]
+        +name: VARCHAR(80) [UNIQUE, NOT NULL]
+        +description: VARCHAR(1000) [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "hotel_room_types" as hotel_room_types <<schema.prisma>> {
+        +id: UUID [PK]
+        +hotel_id: UUID [FK, NOT NULL]
+        +room_type_master_id: UUID [FK, NOT NULL]
+        +description: VARCHAR(2000) [NOT NULL]
+        +max_guests: SMALLINT [NOT NULL]
+        +bed_arrangement: VARCHAR(200) [NOT NULL]
+        +amenities: TEXT[] [NOT NULL]
+        +image_urls: TEXT[] [NOT NULL]
+        +price_per_night: BIGINT [NOT NULL]
+        +currency: CHAR(3) [NOT NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "rooms" as rooms <<schema.prisma>> {
+        +id: UUID [PK]
+        +hotel_id: UUID [FK, NOT NULL]
+        +hotel_room_type_id: UUID [FK, NOT NULL]
+        +room_number: VARCHAR(20) [NOT NULL]
+        +floor: SMALLINT [NOT NULL]
+        +status: VARCHAR(16) [NOT NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "bookings" as bookings <<schema.prisma>> {
+        +id: UUID [PK]
+        +reference: VARCHAR(40) [UNIQUE, NOT NULL]
+        +customer_id: UUID [FK, NOT NULL]
+        +hotel_id: UUID [FK, NOT NULL]
+        +hotel_room_type_id: UUID [FK, NOT NULL]
+        +room_id: UUID [FK, NOT NULL]
+        +check_in: DATE [NOT NULL]
+        +check_out: DATE [NOT NULL]
+        +stay_period: DATERANGE [GENERATED, NOT NULL]
+        +guests: SMALLINT [NOT NULL]
+        +guest_name: VARCHAR(100) [NOT NULL]
+        +guest_phone: VARCHAR(16) [NOT NULL]
+        +special_requests: VARCHAR(1000) [NULL]
+        +hotel_name_snapshot: VARCHAR(150) [NOT NULL]
+        +room_type_name_snapshot: VARCHAR(80) [NOT NULL]
+        +bed_arrangement_snapshot: VARCHAR(200) [NOT NULL]
+        +max_guests_snapshot: SMALLINT [NOT NULL]
+        +nights: SMALLINT [GENERATED, NOT NULL]
+        +price_per_night: BIGINT [NOT NULL]
+        +total_amount: BIGINT [NOT NULL]
+        +currency: CHAR(3) [NOT NULL]
+        +status: VARCHAR(24) [NOT NULL]
+        +payment_status: VARCHAR(20) [NOT NULL]
+        +hold_expires_at: TIMESTAMPTZ [NULL]
+        +cancelled_at: TIMESTAMPTZ [NULL]
+        +cancellation_reason: VARCHAR(500) [NULL]
+        +checked_in_at: TIMESTAMPTZ [NULL]
+        +checked_out_at: TIMESTAMPTZ [NULL]
+        +no_show_at: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "payment_orders" as payment_orders <<schema.prisma>> {
+        +id: UUID [PK]
+        +booking_id: UUID [FK, UNIQUE, NOT NULL]
+        +razorpay_order_id: VARCHAR(100) [UNIQUE, NULL]
+        +provider: VARCHAR(16) [NOT NULL]
+        +mode: VARCHAR(8) [NOT NULL]
+        +amount: BIGINT [NOT NULL]
+        +currency: CHAR(3) [NOT NULL]
+        +creation_status: VARCHAR(16) [NOT NULL]
+        +status: VARCHAR(8) [NOT NULL]
+        +attempt_count: INTEGER [NOT NULL]
+        +next_attempt_at: TIMESTAMPTZ [NULL]
+        +locked_until: TIMESTAMPTZ [NULL]
+        +last_error_code: VARCHAR(100) [NULL]
+        +reconciled_at: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "payments" as payments <<schema.prisma>> {
+        +id: UUID [PK]
+        +payment_order_id: UUID [FK, NOT NULL]
+        +razorpay_payment_id: VARCHAR(100) [UNIQUE, NOT NULL]
+        +amount: BIGINT [NOT NULL]
+        +currency: CHAR(3) [NOT NULL]
+        +status: VARCHAR(16) [NOT NULL]
+        +failure_code: VARCHAR(100) [NULL]
+        +failure_message: TEXT [NULL]
+        +authorized_at: TIMESTAMPTZ [NULL]
+        +captured_at: TIMESTAMPTZ [NULL]
+        +verified_at: TIMESTAMPTZ [NULL]
+        +booking_applied_at: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "refunds" as refunds <<schema.prisma>> {
+        +id: UUID [PK]
+        +payment_id: UUID [FK, UNIQUE, NOT NULL]
+        +razorpay_refund_id: VARCHAR(100) [UNIQUE, NULL]
+        +amount: BIGINT [NOT NULL]
+        +currency: CHAR(3) [NOT NULL]
+        +status: VARCHAR(12) [NOT NULL]
+        +reason: VARCHAR(500) [NOT NULL]
+        +attempt_count: INTEGER [NOT NULL]
+        +provider_outcome_unknown: BOOLEAN [NOT NULL]
+        +next_attempt_at: TIMESTAMPTZ [NULL]
+        +locked_until: TIMESTAMPTZ [NULL]
+        +last_error_code: VARCHAR(100) [NULL]
+        +processed_at: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "webhook_events" as webhook_events <<schema.prisma>> {
+        +id: UUID [PK]
+        +provider_event_id: VARCHAR(150) [UNIQUE, NOT NULL]
+        +event_type: VARCHAR(100) [NOT NULL]
+        +payload: JSONB [NOT NULL]
+        +payload_hash: CHAR(64) [NOT NULL]
+        +status: VARCHAR(16) [NOT NULL]
+        +attempt_count: INTEGER [NOT NULL]
+        +next_attempt_at: TIMESTAMPTZ [NULL]
+        +locked_until: TIMESTAMPTZ [NULL]
+        +last_error: TEXT [NULL]
+        +processed_at: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "email_outbox" as email_outbox <<schema.prisma>> {
+        +id: UUID [PK]
+        +recipient_user_id: UUID [FK, NULL]
+        +recipient_email: VARCHAR(254) [NOT NULL]
+        +booking_id: UUID [FK, NULL]
+        +password_reset_token_id: UUID [FK, NULL]
+        +template_code: VARCHAR(50) [NOT NULL]
+        +template_version: INTEGER [NOT NULL]
+        +template_data: JSONB [NOT NULL]
+        +sensitive_payload_ciphertext: BYTEA [NULL]
+        +encryption_key_id: VARCHAR(100) [NULL]
+        +deduplication_key: VARCHAR(150) [UNIQUE, NOT NULL]
+        +status: VARCHAR(16) [NOT NULL]
+        +attempt_count: INTEGER [NOT NULL]
+        +available_at: TIMESTAMPTZ [NOT NULL]
+        +locked_until: TIMESTAMPTZ [NULL]
+        +provider_message_id: VARCHAR(150) [NULL]
+        +last_error: TEXT [NULL]
+        +sent_at: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "idempotency_records" as idempotency_records <<schema.prisma>> {
+        +id: UUID [PK]
+        +user_id: UUID [FK, NOT NULL]
+        +operation: VARCHAR(200) [NOT NULL]
+        +idempotency_key: VARCHAR(128) [NOT NULL]
+        +request_hash: CHAR(64) [NOT NULL]
+        +status: VARCHAR(16) [NOT NULL]
+        +response_http_code: SMALLINT [NULL]
+        +response_business_body: JSONB [NULL]
+        +resource_id: UUID [NULL]
+        +expires_at: TIMESTAMPTZ [NOT NULL]
+        +locked_until: TIMESTAMPTZ [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+
+    class "audit_logs" as audit_logs <<schema.prisma>> {
+        +id: UUID [PK]
+        +actor_id: UUID [FK, NOT NULL]
+        +action: VARCHAR(100) [NOT NULL]
+        +entity_type: VARCHAR(50) [NOT NULL]
+        +entity_id: UUID [NOT NULL]
+        +changes: JSONB [NOT NULL]
+        +request_id: VARCHAR(100) [NULL]
+        --
+        +created_at: TIMESTAMPTZ [NOT NULL]
+        +created_by: UUID [FK, NOT NULL]
+        +updated_at: TIMESTAMPTZ [NOT NULL]
+        +updated_by: UUID [FK, NOT NULL]
+        +is_active: BOOLEAN [NOT NULL, DEFAULT TRUE]
+    }
+}
+
+package "Configuration and Utilities" {
+
+    interface "ILogger" as ILogger <<utils/logger.ts>> {
+        +info(message: string, fields: JsonObject): void
+        +warn(message: string, fields: JsonObject): void
+        +error(message: string, fields: JsonObject): void
+    }
+
+    class "Settings" as Settings <<settings.ts>> {
+        +port: number
+        +databaseUrl: string
+        +databasePoolLimit: number
+        +jwtSigningSecret: string
+        +accessTokenTtlSeconds: number
+        +refreshTokenTtlSeconds: number
+        +sessionMaxAgeSeconds: number
+        +razorpayKeyId: string
+        +razorpayKeySecret: string
+        +razorpayWebhookSecret: string
+        +emailTransport: string
+        +encryptionKeyId: string
+        +encryptionKey: string
+        +jobBatchSize: number
+        +jobLeaseSeconds: number
+    }
+
+    class "StructuredLogger" as StructuredLogger <<utils/logger.ts>> {
+        -sink: LogSink
+        +constructor(sink: LogSink)
+        +info(message: string, fields: JsonObject): void
+        +warn(message: string, fields: JsonObject): void
+        +error(message: string, fields: JsonObject): void
+    }
+}
+
+' Application registration and dependency composition
+
+Server --> App : starts HTTP
+Server --> DatabaseClient : closes on shutdown
+
+DependencyRoot ..> ApplicationDependencies : composes
+DependencyRoot ..> BackgroundWorker : composes worker process
+DependencyRoot ..> DatabaseClient : creates one pool per process
+DependencyRoot ..> StructuredLogger : creates
+DependencyRoot ..> AuthService : creates
+DependencyRoot ..> UserService : creates
+DependencyRoot ..> HotelService : creates
+DependencyRoot ..> BookingService : creates
+DependencyRoot ..> PaymentService : creates
+DependencyRoot ..> WebhookService : creates
+DependencyRoot ..> RefundService : creates
+DependencyRoot ..> AdminService : creates
+DependencyRoot ..> NotificationService : creates
+DependencyRoot ..> IdempotencyService : creates
+DependencyRoot ..> AuditService : creates
+
+App --> HttpMiddleware : registers
+App --> ErrorMiddleware : registers after routes
+App --> DefaultRoutes : registers directly
+App --> AuthRoutes : registers directly
+App --> UserRoutes : registers directly
+App --> HotelRoutes : registers directly
+App --> BookingRoutes : registers directly
+App --> PaymentRoutes : registers directly
+App --> RefundRoutes : registers directly
+App --> AdminRoutes : registers directly
+
+DefaultRoutes --> DatabaseClient
+AuthRoutes --> IAuthService
+UserRoutes --> IUserService
+HotelRoutes --> IHotelService
+BookingRoutes --> IBookingService
+PaymentRoutes --> IPaymentService
+PaymentRoutes --> IWebhookService
+RefundRoutes --> IRefundService
+AdminRoutes --> IAdminService
+
+AuthMiddleware --> ITokenClient
+AuthMiddleware --> IUserRepository
+ValidationMiddleware --> ValidationSchemas
+ErrorMiddleware --> ResponseBuilder
+ErrorMiddleware --> ILogger
+ResponseBuilder --> APIResponse
+ResponseBuilder --> AppError
+
+' Service realizations
+
+AuthService ..|> IAuthService
+UserService ..|> IUserService
+HotelService ..|> IHotelService
+AdminService ..|> IAdminService
+BookingService ..|> IBookingService
+PaymentService ..|> IPaymentService
+WebhookService ..|> IWebhookService
+RefundService ..|> IRefundService
+NotificationService ..|> INotificationService
+IdempotencyService ..|> IIdempotencyService
+AuditService ..|> IAuditService
+
+' Service dependencies
+
+AuthService --> IUserRepository
+AuthService --> ISessionRepository
+AuthService --> IPasswordResetRepository
+AuthService --> IAuditActorRepository
+AuthService --> ITokenClient
+AuthService --> IPasswordClient
+AuthService --> INotificationService
+AuthService --> IAuditService
+AuthService --> DatabaseClient
+
+UserService --> IUserRepository
+UserService --> ISessionRepository
+UserService --> IPasswordClient
+UserService --> IAuditService
+UserService --> DatabaseClient
+
+HotelService --> IHotelRepository
+HotelService --> IInventoryRepository
+HotelService --> IBookingRepository
+HotelService --> IAuditService
+HotelService --> DatabaseClient
+
+AdminService --> IHotelService
+AdminService --> IBookingService
+AdminService --> IRefundService
+
+BookingService --> IBookingRepository
+BookingService --> IHotelRepository
+BookingService --> IInventoryRepository
+BookingService --> IIdempotencyService
+BookingService --> IRefundService
+BookingService --> INotificationService
+BookingService --> IAuditService
+BookingService --> DatabaseClient
+BookingService --> BookingTransitions
+
+PaymentService --> IPaymentRepository
+PaymentService --> IBookingRepository
+PaymentService --> IPaymentAdapter
+PaymentService --> IIdempotencyService
+PaymentService --> CaptureProcessor
+PaymentService --> DatabaseClient
+
+CaptureProcessor --> IPaymentRepository
+CaptureProcessor --> IBookingRepository
+CaptureProcessor --> BookingTransitions
+CaptureProcessor --> IRefundService
+CaptureProcessor --> INotificationService
+CaptureProcessor --> IAuditService
+
+WebhookService --> IWebhookRepository
+WebhookService --> IPaymentAdapter
+WebhookService --> CaptureProcessor
+WebhookService --> IRefundService
+WebhookService --> DatabaseClient
+
+RefundService --> IRefundRepository
+RefundService --> IPaymentRepository
+RefundService --> IBookingRepository
+RefundService --> IPaymentAdapter
+RefundService --> IIdempotencyService
+RefundService --> INotificationService
+RefundService --> IAuditService
+RefundService --> DatabaseClient
+
+NotificationService --> IEmailOutboxRepository
+NotificationService --> IEmailClient
+NotificationService --> IPayloadCipherClient
+NotificationService --> EmailTemplateRenderer
+NotificationService --> DatabaseClient
+
+IdempotencyService --> IIdempotencyRepository
+AuditService --> IAuditRepository
+
+' Repository realizations and shared database
+
+UserRepository ..|> IUserRepository
+AuditActorRepository ..|> IAuditActorRepository
+SessionRepository ..|> ISessionRepository
+PasswordResetRepository ..|> IPasswordResetRepository
+HotelRepository ..|> IHotelRepository
+InventoryRepository ..|> IInventoryRepository
+BookingRepository ..|> IBookingRepository
+PaymentRepository ..|> IPaymentRepository
+RefundRepository ..|> IRefundRepository
+WebhookRepository ..|> IWebhookRepository
+EmailOutboxRepository ..|> IEmailOutboxRepository
+IdempotencyRepository ..|> IIdempotencyRepository
+AuditRepository ..|> IAuditRepository
+
+UserRepository --> DatabaseClient
+AuditActorRepository --> DatabaseClient
+SessionRepository --> DatabaseClient
+PasswordResetRepository --> DatabaseClient
+HotelRepository --> DatabaseClient
+InventoryRepository --> DatabaseClient
+BookingRepository --> DatabaseClient
+PaymentRepository --> DatabaseClient
+RefundRepository --> DatabaseClient
+WebhookRepository --> DatabaseClient
+EmailOutboxRepository --> DatabaseClient
+IdempotencyRepository --> DatabaseClient
+AuditRepository --> DatabaseClient
+
+DatabaseClient ..> TransactionContext
+
+' External clients
+
+RazorpayAdapter ..|> IPaymentAdapter
+EmailClient ..|> IEmailClient
+TokenClient ..|> ITokenClient
+PasswordClient ..|> IPasswordClient
+PayloadCipherClient ..|> IPayloadCipherClient
+StructuredLogger ..|> ILogger
+
+' Worker jobs
+
+BackgroundWorker o-- IJob
+BackgroundWorker --> DatabaseClient
+
+HoldExpiryJob ..|> IJob
+EmailDeliveryJob ..|> IJob
+WebhookProcessingJob ..|> IJob
+PaymentReconciliationJob ..|> IJob
+RefundProcessingJob ..|> IJob
+RefundReconciliationJob ..|> IJob
+
+HoldExpiryJob --> IBookingService : expireHolds
+EmailDeliveryJob --> INotificationService : deliverPending
+WebhookProcessingJob --> IWebhookService : processPending
+PaymentReconciliationJob --> IPaymentService : reconcilePending
+RefundProcessingJob --> IRefundService : processPending
+RefundReconciliationJob --> IRefundService : reconcilePending
+
+' DTO relationships
+
+APIResponse "1" *-- "0..*" ErrorResponseDTO
+PageDTO *-- PageMetaDTO
+AuthResultDTO *-- UserDTO
+AuthResultDTO *-- TokensDTO
+
+HotelInputDTO *-- LocationDTO
+HotelPatchDTO --> LocationDTO
+HotelDTO *-- LocationDTO
+HotelSearchItemDTO *-- HotelDTO
+HotelSearchItemListDTO *-- HotelSearchItemDTO
+HotelSearchItemListDTO *-- PageMetaDTO
+
+RoomTypeListDTO *-- RoomTypeDTO
+RoomTypeListDTO *-- PageMetaDTO
+RoomListDTO *-- RoomDTO
+RoomListDTO *-- PageMetaDTO
+
+AvailabilityItemDTO *-- RoomTypeDTO
+AvailabilityItemDTO *-- PriceDTO
+AvailabilityItemListDTO *-- AvailabilityItemDTO
+AvailabilityItemListDTO *-- PageMetaDTO
+
+BookingDTO *-- PriceDTO
+BookingDTO --> BookingStatus
+BookingListDTO *-- BookingDTO
+BookingListDTO *-- PageMetaDTO
+
+AdminBookingDTO *-- BookingDTO
+AdminBookingListDTO *-- AdminBookingDTO
+AdminBookingListDTO *-- PageMetaDTO
+
+CancelResultDTO *-- BookingDTO
+CancelResultDTO --> RefundDTO
+
+VerificationResultDTO *-- PaymentDTO
+VerificationResultDTO *-- BookingDTO
+VerificationOutcome *-- VerificationResultDTO
+
+PaymentListDTO *-- PaymentDTO
+PaymentListDTO *-- PageMetaDTO
+RefundListDTO *-- RefundDTO
+RefundListDTO *-- PageMetaDTO
+
+RequestContext --> UserRole
+ClaimResult --> StoredOutcome
+ValidationSchemas --> RequestSchema
+RequestSchema ..> ValidatedInput
+
+' Persistence-to-response mappings
+
+users ..> UserDTO : maps explicitly
+hotels ..> HotelDTO : maps explicitly
+hotel_room_types ..> RoomTypeDTO : maps explicitly
+rooms ..> RoomDTO : maps explicitly
+bookings ..> BookingDTO : maps explicitly
+payment_orders ..> PaymentOrderDTO : maps explicitly
+payments ..> PaymentDTO : maps explicitly
+refunds ..> RefundDTO : maps explicitly
+
+' Database relationships
+
+audit_actors "1" -- "0..1" users : identifies
+users "1" -- "0..*" refresh_sessions
+users "1" -- "0..*" password_reset_tokens
+users "1" -- "0..*" hotels : owns
+
+hotels "1" -- "0..*" hotel_room_types
+room_type_master "1" -- "0..*" hotel_room_types
+hotel_room_types "1" -- "0..*" rooms
+hotels "1" -- "0..*" rooms
+
+users "1" -- "0..*" bookings
+hotels "1" -- "0..*" bookings
+hotel_room_types "1" -- "0..*" bookings
+rooms "1" -- "0..*" bookings
+
+bookings "1" -- "0..1" payment_orders
+payment_orders "1" -- "0..*" payments
+payments "1" -- "0..1" refunds
+
+users "1" -- "0..*" idempotency_records
+users "0..1" -- "0..*" email_outbox
+bookings "0..1" -- "0..*" email_outbox
+password_reset_tokens "0..1" -- "0..*" email_outbox
+
+audit_actors "1" -- "0..*" audit_logs
+refresh_sessions "0..1" --> "0..1" refresh_sessions : replaced_by_id
+
+note bottom of App
+  Registers route modules directly.
+  No AllRoutes class and no routes/index.ts.
+
+  Register raw webhook handling before normal JSON parsing.
+  Protected JSON routes:
+  context/limits -> JSON parser -> auth/role -> validation -> handler.
+
+  Register 404/error handlers after routes.
+  Bind callbacks or use arrow methods to preserve this.
+end note
+
+note bottom of DependencyRoot
+  Manual constructor injection.
+  Compose once per process.
+
+  Build settings/logger/database/adapters/repositories,
+  then services, middleware and route dependencies.
+
+  API and worker have independent entry points.
+  Shared instances remain stateless.
+end note
+
+note bottom of AdminService
+  Keep existing /admin paths.
+  Delegate to hotel, booking and refund services.
+
+  All management access is scoped to the verified hotel owner.
+  No client-provided ownerId or isAdmin boolean grants access.
+end note
+
+note bottom of DatabaseClient
+  One ORM client and connection pool per process.
+
+  Services own transaction boundaries and pass tx explicitly.
+  Never store tx on shared repositories.
+
+  TransactionWork<T> =
+  (tx: TransactionContext) => Promise<T>.
+
+  ReadWork/QueryWork are internal repository callbacks.
+  Commit on success; rollback on thrown failure.
+
+  ORM for routine queries.
+  Parameterized SQL for PostGIS and required locking.
+
+  Provider and email calls stay outside DB transactions.
+  Migrations/seeding run as deployment commands.
+end note
+
+note bottom of BookingService
+  One transaction:
+  claim idempotency -> lock offering/room -> expire stale holds
+  -> check availability/capacity/price -> insert booking
+  -> audit -> save replay outcome.
+
+  Hold: 10 minutes.
+  Stay: [checkIn, checkOut), 1..30 nights.
+  Maximum advance: 365 days.
+
+  Preserve booking snapshots.
+  Cancel and enqueue full-refund intent atomically.
+  Confirmed cancellation is before hotel-local check-in date.
+end note
+
+note bottom of CaptureProcessor
+  Shared by checkout, webhook and reconciliation.
+
+  Verify captured status, account, order, amount and currency.
+  Lock booking before applying capture.
+
+  Confirm only unexpired PENDING_PAYMENT at processing time.
+  Late capture queues refund.
+  Never revive cancelled or expired bookings.
+
+  Unique provider payment ID and booking_applied_at
+  prevent duplicate effects.
+end note
+
+note bottom of PaymentService
+  Commit provider intent before network call.
+  Persist provider outcome in another short transaction.
+
+  Unknown outcome requires reconciliation before creation retry.
+  Local payment-order UUID is the provider receipt.
+  Receipt is not a provider idempotency guarantee.
+
+  VerificationOutcome selects HTTP 200 or 202.
+end note
+
+note bottom of WebhookService
+  Verify signature on untouched raw bytes before parsing.
+  Persist unique event ID and payload hash before acknowledgment.
+
+  Apply effects and mark processed atomically.
+  Record unsupported signed events as ignored.
+end note
+
+note bottom of RefundService
+  Full refunds only in v1.
+  One refund intent per payment.
+
+  Call provider outside DB transaction.
+  Reconcile unknown outcomes before retrying creation.
+  Admin retry cannot bypass successful or unknown state guards.
+end note
+
+note bottom of BackgroundWorker
+  Separate process from HTTP server.
+  Durable PostgreSQL work; no Redis required for v1.
+
+  Hold expiry, email, webhook, payment and refund jobs.
+
+  Stop claiming on shutdown.
+  Await bounded in-flight work, then close database pool.
+end note
+
+note bottom of Lease
+  Database assigns locked_until while claiming work.
+  Lease.until is the exact persisted deadline.
+
+  Guard completion/retry using expected locked_until
+  and verify the claim remains valid.
+
+  Use database time and consistent lock ordering.
+  Leases do not guarantee exactly-once external effects.
+end note
+
+note bottom of NotificationService
+  Transactional outbox with unique message key.
+  Encrypt sensitive reset-email payloads.
+
+  Send outside DB transactions.
+  Bounded retries and guarded completion.
+
+  Delivery is at least once:
+  a crash after sending can duplicate an email.
+end note
+
+note bottom of AuthService
+  Customer registration only.
+  Owner-management accounts are provisioned separately.
+
+  Create user, audit actor and session atomically.
+  Hash passwords and opaque refresh/reset tokens.
+
+  Rotate refresh tokens under lock.
+  Preserve token-family absolute expiry.
+
+  Commit reuse-triggered family revocation
+  before returning unauthorized.
+
+  Reset password, consume reset token
+  and revoke sessions atomically.
+end note
+
+note bottom of IdempotencyService
+  Unique caller + operation + key.
+  Compare normalized request hash.
+
+  Claim, business writes and stored outcome share one transaction.
+  Replays receive a fresh timestamp/request_id.
+
+  External operations also require durable provider intents.
+end note
+
+note bottom of APIResponse
+  Success: status=success, code=2xx, errors=[].
+  Error: status=error, code=4xx/5xx, data=null, errors nonempty.
+
+  Body code equals HTTP status.
+  Timestamp is UTC ISO 8601.
+  request_id is generated by server.
+
+  Lists use data.items and data.pagination.
+  Acknowledgments use null data.
+end note
+
+note bottom of ValidationSchemas
+  Define explicit schemas for every endpoint:
+  body, path, query and relevant headers.
+
+  Validate UUIDs, formats, bounds, enums and lengths.
+  Parse transport strings deliberately.
+  Reject unknown writable fields and empty PATCH bodies.
+
+  Optional means omitted; nullable means explicit null.
+  Check city versus coordinates and paired stay dates.
+  Services enforce ownership and database-dependent rules.
+end note
+
+note bottom of RoomTypeInputDTO
+  Current Swagger supplies name.
+  Persistence references room_type_master.
+
+  Resolve the master lookup/input mapping before implementation.
+  Do not silently create arbitrary master records.
+end note
+
+note bottom of bookings
+  GiST exclusion prevents room overlap for:
+  PENDING_PAYMENT, CONFIRMED and CHECKED_IN.
+
+  Do not use now() in the exclusion predicate.
+  Enforce hotel/offering/room consistency with composite FKs.
+  total_amount = price_per_night * nights.
+
+  is_active does not bypass inventory or financial integrity.
+end note
+
+note bottom of audit_logs
+  Append-only.
+  updated_at/updated_by remain equal to insert values.
+  is_active remains true.
+
+  All created_by and updated_by columns reference audit_actors.id.
+  Seed system actor with documented self-FK bootstrap.
+end note
+
+legend bottom
+  One consolidated v1 diagram.
+
+  Node.js/TypeScript modular monolith.
+  PostgreSQL/PostGIS.
+  Razorpay TEST.
+
+  44 Swagger operations:
+  health 1, auth 6, user 3, hotels 4,
+  customer bookings 4, payments/webhook 4,
+  customer refunds 1, admin 21.
+
+  Implementations realize all methods on their interfaces.
+  DTO/type/enum boxes are contracts, not mandatory runtime classes.
+
+  Filenames are relative to src/.
+  Persistence schema: repositories/schema/schema.prisma.
+  PostgreSQL-specific constraints also require versioned migrations.
+
+  Public money: safe integer INR paise.
+  Database money: BIGINT.
+  Convert bigint explicitly; do not serialize it directly.
+
+  UUID = branded string.
+  LocalDate = YYYY-MM-DD.
+  LocalTime = HH:mm or HH:mm:ss.
+  JsonObject/JsonValue = recursive JSON-safe types.
+
+  Framework/runtime types come from Express, Node,
+  the selected ORM, validator and logger.
+
+  ADMIN retains Swagger naming but is owner-scoped in v1.
+  payment_orders.id replaces the removed correlation_key.
+endlegend
+
+@enduml
