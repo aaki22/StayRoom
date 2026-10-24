@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+define/
+design/
+package-lock.json
+src/repositories/generated/
+src/repositories/schema/migrations/

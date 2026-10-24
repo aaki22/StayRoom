@@ -1,65 +1,75 @@
-import express, {
-  type Express,
-} from 'express';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import cors from 'cors';
+import express, { type Express, type RequestHandler } from 'express';
 import helmet from 'helmet';
-
+import type { LevelWithSilent, Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
 
-import type { Logger } from 'pino';
-
-import {
-  API_PREFIX,
-  REQUEST_ID_HEADER,
-} from '../constants/constants.ts';
-
+import { API_PREFIX, REQUEST_ID_HEADER } from '../constants/constants.ts';
 import type { Settings } from '../settings.ts';
+import { ERROR_CODES } from '../utils/exceptions/error_codes.ts';
+import { AppException } from '../utils/exceptions/exceptions.ts';
+import { requestContext } from '../utils/request_context.ts';
+import { rawBodyMiddleware } from './raw_body.ts';
+import { requestContextMiddleware } from './request_context.ts';
 
-import {
-  requestContext,
-} from '../utils/request_context.ts';
+const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH']);
 
-import {
-  requestContextMiddleware,
-} from '../middleware/request_context.ts';
+const enforceJsonContentType: RequestHandler = (request, _response, next) => {
+  if (!BODY_METHODS.has(request.method)) {
+    next();
+    return;
+  }
 
-import {
-  rawBodyMiddleware,
-} from '../middleware/raw_body.ts';
+  const contentLength = request.get('content-length');
+  const transferEncoding = request.get('transfer-encoding');
+  const hasBody = (contentLength !== undefined && contentLength !== '0') || transferEncoding !== undefined;
 
-export function configureHttpMiddleware(
-  app: Express,
-  settings: Settings,
-  logger: Logger,
-): void {
+  if (hasBody && !request.is('application/json')) {
+    next(
+      new AppException(
+        415,
+        ERROR_CODES.UNSUPPORTED_MEDIA_TYPE,
+        'Content-Type must be application/json',
+        'Content-Type',
+      ),
+    );
+    return;
+  }
+
+  next();
+};
+
+function resolveHttpLogLevel(
+  _request: IncomingMessage,
+  response: ServerResponse,
+  error?: Error,
+): LevelWithSilent {
+  if (error !== undefined || response.statusCode >= 500) {
+    return 'error';
+  }
+  if (response.statusCode >= 400) {
+    return 'warn';
+  }
+  return 'info';
+}
+
+export function configureHttpMiddleware(app: Express, settings: Settings, logger: Logger): void {
   app.disable('x-powered-by');
 
   app.use(requestContextMiddleware);
-
   app.use(
     pinoHttp({
       logger,
-
-      genReqId: () =>
-        requestContext.require().requestId,
-
+      genReqId: () => requestContext.require().requestId,
+      customLogLevel: resolveHttpLogLevel,
       serializers: {
-        req: (
-          request: {
-            method?: string;
-            url?: string;
-          },
-        ) => ({
+        req: (request: { method?: string; url?: string }) => ({
           method: request.method,
           path: request.url?.split('?')[0],
         }),
-
-        res: (
-          response: {
-            statusCode?: number;
-          },
-        ) => ({
+        res: (response: { statusCode?: number }) => ({
           statusCode: response.statusCode,
         }),
       },
@@ -67,7 +77,6 @@ export function configureHttpMiddleware(
   );
 
   app.use(helmet());
-
   app.use(
     cors({
       origin: settings.CORS_ORIGINS,
@@ -75,11 +84,10 @@ export function configureHttpMiddleware(
     }),
   );
 
-  // Preserve provider webhook bytes before general JSON parsing.
-  app.use(
-    `${API_PREFIX}/webhooks/razorpay`,
-    rawBodyMiddleware,
-  );
+  app.use(enforceJsonContentType);
+
+  // Preserve exact provider webhook bytes before general JSON parsing.
+  app.use(`${API_PREFIX}/webhooks/razorpay`, rawBodyMiddleware);
 
   app.use(
     express.json({
